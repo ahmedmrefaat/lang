@@ -68,8 +68,10 @@ var bool: BuiltInFunction = new BuiltInFunction("bool", 1, 1, boolValueType.copy
 var notEmpty: BuiltInFunction = new BuiltInFunction("notEmpty", 1, 1, boolValueType.copy().addSize(1));
 var empty: BuiltInFunction = new BuiltInFunction("empty", 1, 1, boolValueType.copy().addSize(1));
 var sum: BuiltInFunction = new BuiltInFunction("sum", 1, Infinity, numericValueType.copy().addSize(1));
-var min: BuiltInFunction = new BuiltInFunction("min", 1, Infinity, undefined);
-var max: BuiltInFunction = new BuiltInFunction("max", 1, Infinity, undefined);
+var min: BuiltInFunction = new BuiltInFunction("min", 1, Infinity, undefined,
+                                               false,false,false,true);
+var max: BuiltInFunction = new BuiltInFunction("max", 1, Infinity, undefined,
+                                               false,false,false,true);
 var me: BuiltInFunction = new BuiltInFunction("me", 0, 0, undefined, true);
 var embedded: BuiltInFunction = new BuiltInFunction("embedded", 0, 1, undefined, true, true);
 var embeddedStar: BuiltInFunction = new BuiltInFunction("embeddedStar", 0, 1, undefined, true, true);
@@ -94,6 +96,7 @@ var identify: BuiltInFunction = new BuiltInFunction("identify", 2, 2, undefined)
 var anonymize: BuiltInFunction = new BuiltInFunction("anonymize", 1, 1, undefined);
 var overlap: BuiltInFunction = new BuiltInFunction("overlap", 2, 2, boolValueType);
 var time: BuiltInFunction = new BuiltInFunction("time", 2, 3, numericValueType.copy().addSize(1));
+var timeTrue: BuiltInFunction = new BuiltInFunction("timeTrue", 2, 3, numericValueType.copy().addSize(1));
 var changed: BuiltInFunction = new BuiltInFunction("changed", 1, 1, boolValueType.copy().addSize(1));
 var redirect: BuiltInFunction = new BuiltInFunction("redirect", 0, 0, boolValueType.copy().addSize(0));
 var systemInfo: BuiltInFunction = new BuiltInFunction("systemInfo", 0, 0, 

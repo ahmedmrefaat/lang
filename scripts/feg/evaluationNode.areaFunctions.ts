@@ -1,3 +1,4 @@
+// Copyright 2019 Yoav Seginer.
 // Copyright 2017 Theo Vosse.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -927,7 +928,7 @@ class EvaluationAreaProjection extends EvaluationNode {
         }
     }
 
-    write(result: Result, mode: WriteMode, attributes: MergeAttributes, positions: DataPosition[]): void {
+    write(result: Result, mode: WriteMode, attributes: MergeAttributes, positions: DataPosition[], reportDeadEnd: boolean): boolean {
         var areaData: any = this.inputs[0] !== undefined &&
             this.inputs[0].result.value;
         var pos: number = 0;
@@ -939,6 +940,10 @@ class EvaluationAreaProjection extends EvaluationNode {
         } else if (!(areaData instanceof Array)) {
             areaData = [areaData];
         }
+
+        // true if write was successful, false if not
+        var success: boolean = false;
+        
         // Note: positions refer to concatenated contents of this.values,
         // so we need to count the length of the value returned from an area
         // in order to send the result to the right place.
@@ -952,9 +957,28 @@ class EvaluationAreaProjection extends EvaluationNode {
                     areaDataPosition = [
                         new DataPosition(0, this.values[i].size())
                     ];
-                    exportNode.write(result, mode, attributes, areaDataPosition);
+                    if(exportNode.write(result, mode, attributes,
+                                        areaDataPosition, reportDeadEnd))
+                        success = true;
                 }
             }
+        } else if(positions.length == 1 && positions[0].index == 0 &&
+                  positions[0].length == 0) {
+            // this is a write through an unmatched query, so we append at
+            // the end (at the last area which allows us to write).
+            for(var i:number = areaData.length - 1 ; i >= 0 ; --i) {
+                assert(areaData[i] instanceof ElementReference,
+                       "areaData must be array of ElementReference");
+                elemRef = <ElementReference> areaData[i];
+                area = allAreaMonitor.getAreaById(elemRef.element);
+                exportNode = area.getExport(this.exportId);
+                assert(exportNode !== undefined,
+                       "if result is defined, exportNode must be too");
+                if(exportNode.write(result, mode, attributes,
+                                    positions, reportDeadEnd))
+                    return true;
+            }
+            // fall to dead-end message below
         } else {
             var accumLength: number = 0;
             i = 0;
@@ -962,7 +986,7 @@ class EvaluationAreaProjection extends EvaluationNode {
                 var v: any[] = this.values[i].value;
                 var vlen: number = v === undefined? 0: v.length;
                 if (accumLength <= positions[pos].index &&
-                    (vlen === 0 || positions[pos].index < accumLength + vlen)) {
+                    positions[pos].index < accumLength + vlen) {
                     // Next position(s) come(s) from area i
                     assert(areaData[i] instanceof ElementReference,
                            "areaData must be array of ElementReference");
@@ -973,13 +997,14 @@ class EvaluationAreaProjection extends EvaluationNode {
                            "if result is defined, exportNode must be too");
                     areaDataPosition = [];
                     while (pos < positions.length &&
-                           (vlen === 0 ||
-                            positions[pos].index < accumLength + vlen)) {
+                           positions[pos].index < accumLength + vlen) {
                         var dp: DataPosition = positions[pos];
                         areaDataPosition.push(dp.copyWithOffset(accumLength));
                         pos++;
                     }
-                    exportNode.write(result, mode, attributes, areaDataPosition);
+                    if(exportNode.write(result, mode, attributes,
+                                        areaDataPosition, reportDeadEnd))
+                       success = true;
                 }
                 if (!(vlen === 1 && v[0] === undefined)) {
                     accumLength += vlen;
@@ -987,6 +1012,11 @@ class EvaluationAreaProjection extends EvaluationNode {
                 i++;
             }
         }
+
+        if(!success)
+            this.reportDeadEndWrite(reportDeadEnd,
+                                    "cannot write through any child area");
+        return success;
     }
 
     allInputs(): EvaluationNode[] {
@@ -1152,8 +1182,10 @@ class EvaluationClassOfArea extends EvaluationAreaProjection {
         return !valueEqual(oldValue, this.result.value);
     }
 
-    write(result: Result, mode: WriteMode, attributes: MergeAttributes, positions: DataPosition[]): void {
-        Utilities.warn("dead-ended write: cannot write through classOfArea at " + gWriteAction);
+    write(result: Result, mode: WriteMode, attributes: MergeAttributes, positions: DataPosition[], reportDeadEnd: boolean): boolean {
+        this.reportDeadEndWrite(reportDeadEnd,
+                                "cannot write through classOfArea");
+        return false;
     }
 }
 

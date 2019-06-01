@@ -1,3 +1,4 @@
+// Copyright 2018,2019 Yoav Seginer.
 // Copyright 2017 Theo Vosse.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,6 +59,12 @@ var basicDescriptionTypes: {[typeName: string]: BasicDescriptionType[]} = {
     }, {
         type: "string",
         match: /^\s*\d+(?:\.\d*)?\s*(?:px|em|%)?\s*$/
+    }],
+    numberOrPixelOrPercentageOrPair: [{
+        type: "number"
+    }, {
+        type: "string",
+        match: /^\s*\d+(?:\.\d*)?\s*(?:px|em|%)?\s*(\s+\d+(?:\.\d*)?\s*(?:px|em|%)?\s*)?$/
     }],
     numberOrPercentage: [{
         type: "number"
@@ -227,19 +234,15 @@ var areaAttributeDescription: any = {
                     struct: {
                         value: "any",
                         textAlign: { string: { "in": [ "left", "center", "right", "justify" ] } },
+                        textAlignLast: "string",
                         textIndent: "numberOrString",
                         textTransform: "string",
-                        verticalAlign: {or: [
-                            "pixelOrPercentage",
-                            { string: { "in": ["baseline", "sub", "super",
-                                               "text-top", "text-bottom",
-                                               "middle", "top", "bottom"] }}
-                        ]},
+                        verticalAlign: { string: {
+                            "in": ["middle", "top", "bottom"] }},
                         color: "color",
                         textFillColor: "color",
-                        textStrokeWidth: "numberOrPixel",
+                        textStrokeWidth: "numberOrString",
                         textStrokeColor: "color",
-                        clip: "boolOrString",
                         fontSize: "numberOrString",
                         fontFamily: "string",
                         fontStyle: "string",
@@ -247,16 +250,34 @@ var areaAttributeDescription: any = {
                         fontVariant: "string",
                         lineHeight: "numberOrPixelOrPercentage",
                         textDecoration: "string",
-                        borderSpacing: "string",
-                        overflow: "string",
+                        textOverflow: "string",
                         preformatted: "boolean",
                         whiteSpace: {string: {in: ["normal", "nowrap", "pre", "pre-wrap", "pre-line"]}},
+                        textShadow: {
+                            orderedSet: {
+                                struct: {
+                                    __mandatory__: ["horizontal", "vertical", "color"],
+                                    horizontal: "numberOrPixel",
+                                    vertical: "numberOrPixel",
+                                    color: "color",
+                                    blurRadius: "numberOrPixel"
+                                },
+                                name: "text shadow"
+                            }
+                        },
+                        lang: "string",
+                        direction: { string: { "in": ["ltr","rtl"] }},
+                        writingMode: "string",
+                        textOrientation: "string",
+                        hyphens: "string",
+                        letterSpacing: "numberOrString",
+                        wordSpacing: "numberOrString",
+                        wordBreak: "string",
                         numericFormat: {
                             struct: {
                                 __mandatory__: "type",
                                 type: { string: { "in": [ "fixed", "exponential", "precision", "hexadecimal", "HEXADECIMAL", "intl" ] } },
                                 numberOfDigits: "number",
-                                locale: "string",
                                 localeMatcher: { string: { "in": ["lookup", "best fit"] } },
                                 style: { string: { "in": ["decimal", "currency", "percent"] } },
                                 currency: "string",
@@ -272,12 +293,16 @@ var areaAttributeDescription: any = {
                         },
                         dateFormat: {
                             struct: {
-                                __mandatory__: "type",
                                 type: { string: { "in": [ "intl" ] } },
-                                locale: "string",
                                 localeMatcher: { string: { "in": ["lookup", "best fit"] } },
                                 timeZone: "string",
                                 hour12: "boolean",
+                                hourCycle: {
+                                    string: {
+                                        "in": ["h11","h12","h23","h24"] }},
+                                formatMatcher: {
+                                    string: {
+                                        "in": ["basic","best fit"] }},
                                 weekday: { string: { "in": ["narrow", "short", "long"] } },
                                 era: { string: { "in": ["narrow", "short", "long"] } },
                                 year: { string: { "in": ["numeric", "2-digit"] } },
@@ -289,18 +314,6 @@ var areaAttributeDescription: any = {
                                 timeZoneName: "string"
                             },
                             name: "numeric format"
-                        },
-                        textShadow: {
-                            orderedSet: {
-                                struct: {
-                                    __mandatory__: ["horizontal", "vertical", "color"],
-                                    horizontal: "numberOrPixel",
-                                    vertical: "numberOrPixel",
-                                    color: "color",
-                                    blurRadius: "numberOrPixel"
-                                },
-                                name: "text shadow"
-                            }
                         },
                         input: {
                             struct: {
@@ -358,13 +371,11 @@ var areaAttributeDescription: any = {
                             "left", "center", "right", "start", "end", 
                             "justify", "justify-all" 
                         ] } },
-                        verticalAlign: {or: [
-                            "pixelOrPercentage",
-                            { string: { "in": ["baseline", "sub", "super",
-                                               "text-top", "text-bottom",
-                                               "middle", "top", "bottom"] }}
-                        ]},
+                        textAlignLast: "string",
+                        verticalAlign: { string: {
+                            "in": ["middle", "top", "bottom"] }},
                         textIndent: "numberOrString",
+                        textTransform: "string",
                         color: "color",
                         textFillColor: "color",
                         textStrokeWidth: "numberOrString",
@@ -376,12 +387,18 @@ var areaAttributeDescription: any = {
                         fontVariant: "string",
                         lineHeight: "numberOrPixelOrPercentage",
                         textDecoration: "string",
-                        borderSpacing: "string",
                         handleClick: "boolean",
-                        overflow: {string: {in: ["visible", "hidden"]}},
                         whiteSpace: {string: {in: [
                             "normal", "nowrap", "pre", "pre-wrap", "pre-line"
-                        ]}}
+                        ]}},
+                        lang: "string",
+                        direction: { string: { "in": ["ltr","rtl"] }},
+                        writingMode: "string",
+                        textOrientation: "string",
+                        hyphens: "string",
+                        letterSpacing: "numberOrString",
+                        wordSpacing: "numberOrString",
+                        wordBreak: "string"
                     },
                     name: "html display"
                 },
@@ -459,7 +476,7 @@ var areaAttributeDescription: any = {
                         struct: {
                             linearGradient: {
                                 struct: {
-                                    start: {
+                                    direction: {
                                         or:[{
                                             string: {
                                                     in: ["to left", "to top", "to left top", "to left bottom",
@@ -485,8 +502,7 @@ var areaAttributeDescription: any = {
                         struct: {
                             radialGradient: {
                                 struct: {
-                                    position: "string",
-                                    angle: "degrees",
+                                    centerPoint: "string",
                                     shape: { string: { in: ["circle", "ellipse"] } },
                                     size: "string",
                                     stops: {
@@ -515,11 +531,11 @@ var areaAttributeDescription: any = {
                     }],
                     name: "display background"
                 },
-                borderRadius: "numberOrPixelOrPercentage",
-                borderTopLeftRadius: "numberOrPixelOrPercentage",
-                borderTopRightRadius: "numberOrPixelOrPercentage",
-                borderBottomLeftRadius: "numberOrPixelOrPercentage",
-                borderBottomRightRadius: "numberOrPixelOrPercentage",
+                borderRadius: "numberOrPixelOrPercentageOrPair",
+                borderTopLeftRadius: "numberOrPixelOrPercentageOrPair",
+                borderTopRightRadius: "numberOrPixelOrPercentageOrPair",
+                borderBottomLeftRadius: "numberOrPixelOrPercentageOrPair",
+                borderBottomRightRadius: "numberOrPixelOrPercentageOrPair",
                 boxShadow: {
                     orderedSet: {
                         struct: {
@@ -549,39 +565,50 @@ var areaAttributeDescription: any = {
                 borderBottomStyle: "string",
                 borderBottomWidth: "numberOrPixel",
                 borderBottomColor: "color",
-                overflow: { string: { in: ["hidden", "visible"] } },
-                overflowX: { string: { in: ["hidden", "visible"] } },
-                overflowY: { string: { in: ["hidden", "visible"] } },
                 padding: "numberOrPixel",
                 paddingTop: "numberOrPixel",
                 paddingBottom: "numberOrPixel",
                 paddingLeft: "numberOrPixel",
                 paddingRight: "numberOrPixel",
                 opacity: "number",
-                transform: { // currently only applies to images
-                    struct: {
-                        rotate: "number", // degrees
-                        scale: {
-                            or: [
-                                "number", // identical in both directions
-                                {
-                                    struct: {
-                                        x: "number", // scale horizontal, default 1
-                                        y: "number"  // scale vertical, default 1
+                viewOpacity: "number",
+                transform: {
+                    orderedSet: {
+                        struct: {
+                            rotate: "number", // degrees
+                            scale: {
+                                or: [
+                                    "number", // identical in both directions
+                                    {
+                                        struct: {
+                                            x: "number", // scale horizontal, default 1
+                                            y: "number"  // scale vertical, default 1
+                                        }
                                     }
+                                ]
+                            },
+                            skew: {
+                                struct: {
+                                    x: "numberOrDegrees", // skew X
+                                    y: "numberOrDegrees"  // skew Y
                                 }
-                            ]
-                        },
-                        skew: {
-                            struct: {
-                                x: "numberOrDegrees", // skew X
-                                y: "numberOrDegrees"  // skew Y
+                            },
+                            flip: { string: { in: ["horizontally", "vertically"] } },
+                            matrix: {
+                                struct: {
+                                    __mandatory__: ["a", "b", "c","d","tx","ty"],
+                                    a: "number",
+                                    b: "number",
+                                    c: "number",
+                                    d: "number",
+                                    tx: "number",
+                                    ty: "number"
+                                }
                             }
-                        },
-                        flip: { string: { in: ["horizontally", "vertically"] } }
+                        }
                     }
                 },
-                transitions: {
+                transition: {
                     struct: {
                         top: transitionPropertyDescription,
                         left: transitionPropertyDescription,
@@ -599,14 +626,19 @@ var areaAttributeDescription: any = {
                         borderTopColor: transitionPropertyDescription,
                         borderBottomWidth: transitionPropertyDescription,
                         borderBottomColor: transitionPropertyDescription,
+                        borderRadius: transitionPropertyDescription,
+                        borderTopLeftRadius: transitionPropertyDescription,
+                        borderTopRightRadius: transitionPropertyDescription,
+                        borderBottomLeftRadius: transitionPropertyDescription,
+                        borderBottomRightRadius: transitionPropertyDescription,
                         transform: transitionPropertyDescription,
                         filter: transitionPropertyDescription,
+                        viewFilter: transitionPropertyDescription,
                         opacity: transitionPropertyDescription,
-                        boxShadow: transitionPropertyDescription,
-                        rotate: transitionPropertyDescription,
-                        scale: transitionPropertyDescription
+                        viewOpacity: transitionPropertyDescription,
+                        boxShadow: transitionPropertyDescription
                     },
-                    name: "transitions"
+                    name: "transition"
                 },
                 hoverText: "string",
                 pointerOpaque: "boolean",
@@ -614,6 +646,7 @@ var areaAttributeDescription: any = {
                 hideDuringPrinting: "boolean",
                 filter: {
                     struct: {
+                        url: "string",
                         blur: "numberOrPixelOrPercentage",
                         brightness: "numberOrPercentage",
                         contrast: "numberOrPercentage",
@@ -626,6 +659,22 @@ var areaAttributeDescription: any = {
                         sepia: "numberOrPercentage"
                     },
                     name: "filter"
+                },
+                viewFilter: {
+                    struct: {
+                        url: "string",
+                        blur: "numberOrPixelOrPercentage",
+                        brightness: "numberOrPercentage",
+                        contrast: "numberOrPercentage",
+                        dropShadow: "string",
+                        grayscale: "numberOrPercentage",
+                        hueRotate: "numberOrDegrees",
+                        invert: "numberOrPercentage",
+                        opacity: "numberOrPercentage",
+                        saturate: "numberOrPercentage",
+                        sepia: "numberOrPercentage"
+                    },
+                    name: "viewFilter"
                 }
             },
             name: "display"
@@ -660,11 +709,13 @@ var areaAttributeDescription: any = {
                         min: "numberOrString",
                         max: "number",
                         stability: "boolean",
+                        stableMin: "boolean",
+                        stableMax: "boolean",
                         preference: { string: { "in": ["min", "max"] } },
-                        orGroups: pointDescription,
+                        orGroup: pointDescription,
                         priority: "number",
-                        pair1: pairDescription,
-                        pair2: pairDescription,
+                        numerator: pairDescription,
+                        denominator: pairDescription,
                         ratio: "number"
                     },
                     name: "positioning constraint"

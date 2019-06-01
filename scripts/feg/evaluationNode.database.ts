@@ -452,6 +452,13 @@ class EvaluationDataSourceFunction extends EvaluationDataSource
             lastUpdate: [Date.now()]
         };
 
+        this.setDataSourceResultMode(false);
+        if(this.indexer) {
+            this.releaseDataPathNode();
+            this.indexer.destroy();
+            this.indexer = undefined;
+        }
+        
         if (info !== undefined) {
             resultObject.info = info;
         } 
@@ -487,7 +494,7 @@ class EvaluationDataSourceFunction extends EvaluationDataSource
         this.resumeQueue();
     }
 
-    error(errorEvent: ErrorEvent): void {
+    error(errorEvent: Event): void {
         var uri: string = getDeOSedValue(this.arguments[0].value);
 
         this.errorInLoad = true;
@@ -496,6 +503,7 @@ class EvaluationDataSourceFunction extends EvaluationDataSource
         this.infoUpdate("error", [], "datatable", undefined, "no such file: " + this.sourceName);
         this.client = undefined;
         this.resumeQueue();
+        this.informAllWatchers();
     }
 
     load(response: string, async: boolean): void {
@@ -506,8 +514,6 @@ class EvaluationDataSourceFunction extends EvaluationDataSource
         var noIndexer: boolean =
             (this.arguments[1] !== undefined &&
              isTrue(interpretedQuery({noIndexer: _},this.arguments[1].value)));
-        // in case there is no indexer
-        var data: any[] = undefined;
         
         switch (this.fileMode) {
         case DataSourceFileType.json:
@@ -562,11 +568,11 @@ class EvaluationDataSourceFunction extends EvaluationDataSource
         delete this.result.dataSource;
         this.dataSourceResultMode = false;
         this.result.value = [{
-            state: "loaded",
-            fullName: (this.uri instanceof NativeObjectWrapper ? this.uri.file.name : this.sourceName),
-            name: extractBaseName(this.sourceName),
+            state: ["loaded"],
+            fullName: [this.uri instanceof NativeObjectWrapper ? this.uri.file.name : this.sourceName],
+            name: [extractBaseName(this.sourceName)],
             revision: getDeOSedValue(this.revision),
-            lastUpdate: Date.now(),
+            lastUpdate: [Date.now()],
             attributes: attributes,
             data: normalizeObject(data)
         }];
@@ -588,12 +594,12 @@ class EvaluationDataSourceFunction extends EvaluationDataSource
             this.fileReader.onabort = (): void => {
                 this.abort();
             }
-            this.fileReader.onerror = (ev: FileReaderProgressEvent): any => {
+            this.fileReader.onerror = (ev: any): any => {
                 this.error(new ErrorEvent(ev.toString()));
             }
             this.fileReader.onloadend = (): void => {
                 if (this.fileReader !== undefined) {
-                    this.load(this.fileReader.result, true);
+                    this.load(this.fileReader.result.toString(), true);
                     this.fileReader = undefined;
                 }
             }
@@ -613,7 +619,7 @@ class EvaluationDataSourceFunction extends EvaluationDataSource
             if (this.withCredentialsFlag) {
                 this.client.withCredentials = true;
             }
-            this.client.onerror = (errorEvent: ErrorEvent): void => {
+            this.client.onerror = (errorEvent: ProgressEvent): void => {
                 this.error(errorEvent);
             }
             this.client.open("GET", uri, true);
@@ -1373,7 +1379,7 @@ class EvaluationDatabases extends EvaluationRemoteData
     }
 
     // Can only send one record at a time.
-    write(result: Result, mode: WriteMode, attributes: MergeAttributes, positions: DataPosition[]): void {
+    write(result: Result, mode: WriteMode, attributes: MergeAttributes, positions: DataPosition[], reportDeadEnd: boolean): boolean {
         if ((positions === undefined ||
               (positions.length === 1 && positions[0].length === 1)) &&
               result !== undefined && result.value !== undefined &&
@@ -1402,8 +1408,11 @@ class EvaluationDatabases extends EvaluationRemoteData
             } else {
                 this.updateMetaData(result.value[0], positions);
             }
+            return true;
         } else {
-            Utilities.warn("dead ended write to [databases]; writing through projection or areaSetContent? at " + gWriteAction);
+            this.reportDeadEndWrite(reportDeadEnd,
+                                    "in write to [databases]; writing through projection or areaSetContent?");
+            return false;
         }               
     }
 

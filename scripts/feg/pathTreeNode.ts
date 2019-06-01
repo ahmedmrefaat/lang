@@ -1473,16 +1473,18 @@ class PathTreeNode {
             element: undefined
         },
         position: {
-            pair1: false,
-            pair2: false,
+            denominator: false,
+            numerator: false,
             point1: false,
             point2: false,
             equals: true,
             min: true,
             max: true,
             stability: true,
+            stableMin: true,
+            stableMax: true,
             preference: true,
-            orGroups: false,
+            orGroup: false,
             priority: true,
             ratio: true,
             element: undefined

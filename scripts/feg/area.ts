@@ -1604,7 +1604,8 @@ class ToMergeEvaluationNode implements Watcher {
                 breakIntoDebugger();
             gWriteAction = this.writeNode.name + ":" + this.caseName;
             this.toExpression.write(this.mergeExpression.result, // apply removeEmptyOSFromAV?
-                                   WriteMode.merge, mergeAttributes, undefined);
+                                    WriteMode.merge, mergeAttributes, undefined,
+                                    true);
             gWriteAction = undefined;
         }
         this.mergeExpression.deactivate(this, false);
@@ -2450,7 +2451,7 @@ implements
         }
     }
 
-    abstract setInputState(attrib: string, value: any): void;
+    abstract setInputState(attrib: string, value: any): boolean;
 
     // Implementation of EvaluationEnvironment
 
@@ -3153,7 +3154,7 @@ class CalculationArea extends CoreArea {
     updateParamInput(changes: {[attr: string]: any;}, userInitiated: boolean, checkExistence: boolean): void {
     }
 
-    setInputState(attrib: string, value: any): void {
+    setInputState(attrib: string, value: any): boolean {
         throw new Error("Should not be called.");
     }
 
@@ -3317,7 +3318,7 @@ class DisplayArea extends CoreArea {
         } else {
             this.visualUpdates.display = value;
         }
-        if ("transitions" in value) {
+        if ("transition" in value) {
             allAreaMonitor.requestVisualUpdate(this);
         }
         // Now also update param:input. Note that this will update value:, not
@@ -3800,22 +3801,7 @@ class DisplayArea extends CoreArea {
                 }
             }
         }
-        if (!hasDefinedValues && isAV(displayDescr.line)) {
-            // When there is a line, increase the offsets for all edges with
-            // half the line-width, to allow rendering the line endings.
-            var lineWidth: any = getDeOSedValue(displayDescr.line.width);
-            var clip: any = displayDescr.line.clip;
-            if (lineWidth > 1 && isFalse(clip)) {
-                var frameWidth: number = Math.floor((lineWidth + 1) / 2);
-                offsets = {
-                    top: offsets.top? offsets.top + frameWidth: frameWidth,
-                    left: offsets.left? offsets.left + frameWidth: frameWidth,
-                    bottom: offsets.bottom? offsets.bottom + frameWidth: frameWidth,
-                    right: offsets.right? offsets.right + frameWidth: frameWidth
-                }
-                hasDefinedValues = true;
-            }
-        }
+        
         var needToScheduleGeometryTask: boolean = false;
         if (!hasDefinedValues) {
             needToScheduleGeometryTask =

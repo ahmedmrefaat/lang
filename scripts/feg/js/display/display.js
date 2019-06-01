@@ -1,3 +1,4 @@
+// Copyright 2018,2019 Yoav Seginer
 // Copyright 2017 Yoav Seginer, Theo Vosse, Gil Harari, and Uri Kolodny.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -122,10 +123,7 @@ function ContentDisplay() {
     this.nrTextNodes = 0;
 
     // The following attributes concern the placing of the canvas.
-    // lineFrameOffset: when true, the embedded div must be placed at the
-    // contentPos because there's no real border to push the div in its place;
-    // when false, the embedded div is at the displayDivPos.
-    this.lineFrameOffset = true;
+
     // extraWidth: nr extra pixels needed in the width for shadow or line caps
     this.extraWidth = 0;
     // extraHeight: nr extra pixels needed in the height for shadow or line caps
@@ -189,8 +187,7 @@ ContentDisplay.prototype.removeDisplayElement = function() {
 
 ContentDisplay.prototype.updatePos = function(contentPos, displayPos) {
     if (this.displayDiv) {
-        updateElementPos(this.displayDiv,
-                         this.lineFrameOffset? contentPos: displayPos);
+        updateElementPos(this.displayDiv, displayPos);
     }
     if (this.embeddingDiv) {
         updateElementPos(this.embeddingDiv, contentPos);
@@ -214,17 +211,6 @@ ContentDisplay.prototype.updateZeroOffsetPos = function(relative) {
     if (this.embeddingDiv) {
         updateZeroOffsetElementPos(this.embeddingDiv, relative);
     }
-}
-
-ContentDisplay.prototype.getRotation = function() {
-    var transform = this.descriptionDisplay.transform;
-
-    if (typeof(transform) === "object") {
-        if (typeof(transform.rotation) === "number") {
-            return transform.rotation;
-        }
-    }
-    return 0;
 }
     
 // --------------------------------------------------------------------------
@@ -251,7 +237,7 @@ ContentDisplay.prototype.configurationUpdate = function(
 
 ContentDisplay.prototype.getTransitions = function() {
     return this.descriptionDisplay !== undefined?
-          this.descriptionDisplay.transitions: undefined;
+          this.descriptionDisplay.transition: undefined;
 }
 
 
@@ -260,11 +246,10 @@ ContentDisplay.prototype.getTransitions = function() {
 //
 ContentDisplay.prototype.applyTransitionProperties = function(transitions) {
     if (this.descriptionDisplay !== undefined) {
-        copyTransitionCssProp(
-            this.displayDiv.style, this.displayElement, transitions);
-        if(this.embeddingDiv)
-            copyTransitionCssProp(
-                this.embeddingDiv.style, this.displayElement, transitions);
+        copyTransitionCssProp(this.displayDiv.style, "display", transitions);
+        if(this.displayElement && this.displayElement.root)
+            copyTransitionCssProp(this.displayElement.root.style,
+                                  "root", transitions);
     }
 }
 
@@ -434,7 +419,9 @@ ContentDisplay.prototype.createDisplayDiv = function(idstr) {
 var expandingAttributes = {
     borderRadius: ["borderTopLeftRadius", "borderTopRightRadius",
                    "borderBottomLeftRadius", "borderBottomRightRadius"],
-    padding: ["paddingTop", "paddingLeft", "paddingBottom", "paddingRight"]
+    padding: ["paddingTop", "paddingLeft", "paddingBottom", "paddingRight"],
+    borderStyle: ["borderLeftStyle","borderRightStyle","borderTopStyle",
+                  "borderBottomStyle"]
 };
 
 // --------------------------------------------------------------------------
@@ -451,20 +438,11 @@ ContentDisplay.prototype.applyDisplayProperties =
     // First update the transition properties, otherwise they will apply to the
     // next property change
     if (this.displayDiv && applyTransition) {
-        if ("transitions" in displayProperties) {
-            copyTransitionCssProp(this.displayDiv.style, this.displayElement,
-                                  displayProperties.transitions);
-            if(this.embeddingDiv)
-                copyTransitionCssProp(this.embeddingDiv.style,
-                                      this.displayElement,
-                                      displayProperties.transitions);
+        if ("transition" in displayProperties) {
+            copyTransitionCssProp(this.displayDiv.style, "display",
+                                  displayProperties.transition);
         } else {
-            resetTransitionCssProp(this.displayDiv.style, this.displayElement,
-                                   this.displayElement);
-            if(this.embeddingDiv)
-                resetTransitionCssProp(this.embeddingDiv.style,
-                                       this.displayElement,
-                                       this.displayElement);
+            resetTransitionCssProp(this.displayDiv.style);
         }
     }
     
@@ -485,11 +463,6 @@ ContentDisplay.prototype.applyDisplayProperties =
 
     // store the properties (after the processing above) for later use
     this.displayProperties = displayProperties;
-    // Mark whether there is no content offset as a result of a line or not.
-    // See updatePos() for usage.
-    this.lineFrameOffset = displayProperties && isAV(displayProperties.line) &&
-                           getDeOSedValue(displayProperties.line.width) > 1;
-
     if (this.prevProperties !== undefined) {
         // reset properties that are no longer set
         for (p in frameResetProperties) {
@@ -500,6 +473,18 @@ ContentDisplay.prototype.applyDisplayProperties =
                 copyDisplayCssProp(this, p, frameResetProperties[p]);
             }
         }
+    }
+    // Set default proeprty values which are not equal to the HTML defaults
+    for(p in frameDefaultProperties) {
+        if ((p in displayProperties) && displayProperties[p] !== undefined)
+            continue;
+        var defaultSpec = frameDefaultProperties[p];
+        // check for exceptions for applying this default
+        if(("exception" in defaultSpec) &&
+           displayProperties[defaultSpec.exception.attribute] ==
+           defaultSpec.exception.value)
+            continue;
+        copyDisplayCssProp(this, p, defaultSpec.defaultValue);
     }
     // Dispatch the top level displayProperties to the correct element (these
     // go to the top level element and not to the displayElement elements).
@@ -538,12 +523,11 @@ ContentDisplay.prototype.applyDisplayElementProperties =
           this.prevProperties[this.prevDisplayType];
 
     if (applyTransition) {
-        if ("transitions" in this.displayProperties) {
-            copyTransitionCssProp(displayElement.root.style,
-                      this.displayElement, this.displayProperties.transitions);
+        if ("transition" in this.displayProperties) {
+            copyTransitionCssProp(displayElement.root.style, "root",
+                                  this.displayProperties.transition);
         } else {
-            resetTransitionCssProp(displayElement.root.style, 
-                                   this.displayElement, displayElement);
+            resetTransitionCssProp(displayElement.root.style);
         }
     }
 
@@ -983,7 +967,7 @@ ContentDisplay.prototype.makeContentText = function(content, textSection) {
             if (dateFormat === undefined || dateFormat.type !== "intl") {
                 return content.toString();
             } else {
-                var locale = dateFormat.locale;
+                var locale = getDeOSedValue(textSection.lang);
                 var formatter = new Intl.DateTimeFormat(locale, dateFormat);
                 text = formatter.format(content);
             }
@@ -1015,25 +999,26 @@ ContentDisplay.prototype.makeContentText = function(content, textSection) {
         }
 
     } else if (typeof(content) === "number" &&
-               (numericFormat = suppressSet(textSection.numericFormat)) !== undefined &&
-               ((0 <= numericFormat.numberOfDigits &&
-                 numericFormat.numberOfDigits <= 20) ||
-                numericFormat.type === "intl")) {
+               (numericFormat = suppressSet(textSection.numericFormat)) !== undefined) {
 
+        var numberOfDigits = (0 <= numericFormat.numberOfDigits &&
+                              numericFormat.numberOfDigits <= 20) ?
+            numericFormat.numberOfDigits : undefined;
+        
         // Number formatting options
         switch (numericFormat.type) {
           case "fixed":
-            text = content.toFixed(numericFormat.numberOfDigits);
+            text = content.toFixed(numberOfDigits);
             numericConversion = true;
             break;
           case "exponential":
-            text = content.toExponential(numericFormat.numberOfDigits);
+            text = content.toExponential(numberOfDigits);
             numericConversion = true;
             break;
           case "precision":
-            text = numericFormat.numberOfDigits === 0?
+            text = numberOfDigits === 0?
                   content.toPrecision(): // Otherwise it throws an exception
-                  content.toPrecision(numericFormat.numberOfDigits);
+                  content.toPrecision(numberOfDigits);
             numericConversion = true;
             break;
           case "hexadecimal":
@@ -1042,13 +1027,13 @@ ContentDisplay.prototype.makeContentText = function(content, textSection) {
             if (numericFormat.type === "HEXADECIMAL") {
                 text = text.toUpperCase();
             }
-            while (text.length < numericFormat.numberOfDigits) {
+            while (text.length < numberOfDigits) {
                 text = "0" + text;
             }
             break;
           case "intl":
             try {
-                var locale = numericFormat.locale;
+                var locale = getDeOSedValue(textSection.lang);
                 var formatter = new Intl.NumberFormat(locale, numericFormat);
                 text = formatter.format(content);
                 numericConversion = true;
@@ -1063,40 +1048,13 @@ ContentDisplay.prototype.makeContentText = function(content, textSection) {
 
     } else if (typeof(content) === "number" &&
                (dateFormat = suppressSet(textSection.dateFormat)) !== undefined &&
-               dateFormat.type === "intl") {
+               (dateFormat.type === undefined || dateFormat.type === "intl")) {
         try {
-            var locale = dateFormat.locale;
+            var locale = getDeOSedValue(textSection.lang);
             var formatter = new Intl.DateTimeFormat(locale, dateFormat);
-            text = formatter.format(new Date(content));
+            text = formatter.format(new Date(content * 1000));
         } catch (e) {
             text = String(content);
-        }
-
-    } else if (typeof(content) === "number" && numericFormat !== undefined) {
-        // Use default precision when numberOfDigits is missing or out of range
-        switch (numericFormat.type) {
-          case "fixed":
-            text = content.toFixed();
-            numericConversion = true;
-            break;
-          case "exponential":
-            text = content.toExponential();
-            numericConversion = true;
-            break;
-          case "precision":
-            text = content.toPrecision();
-            numericConversion = true;
-            break;
-          case "hexadecimal":
-          case "HEXADECIMAL":
-            text = content.toString(16);
-            if (numericFormat.type === "HEXADECIMAL") {
-                text = text.toUpperCase();
-            }
-            break;
-          default:
-            text = String(content);
-            break;
         }
 
     } else {
@@ -1416,10 +1374,9 @@ ContentDisplay.prototype.checkArcHit = function(displayDesc, px, width, py, heig
 ContentDisplay.prototype.refreshLine = function(displayDesc, width, height) {
     var line = displayDesc.line;
     var direction = ensureOS(line.direction);
-    var displayDivPos = this.baseArea.displayDivPos;
     var contentPos = this.baseArea.contentPos;
-    var leftOffset = contentPos? contentPos.left - displayDivPos.left: 0;
-    var topOffset = contentPos? contentPos.top - displayDivPos.top: 0;
+    var leftOffset = contentPos? contentPos.left : 0;
+    var topOffset = contentPos? contentPos.top : 0;
     var linePos = this.baseArea.linePos;
     var dash = ensureOS(line.dash);
     var dashOffset = getDeOSedValue(line.dashOffset);
@@ -1428,6 +1385,7 @@ ContentDisplay.prototype.refreshLine = function(displayDesc, width, height) {
     var clip = isTrue(line.clip);
     var ctx = this.context;
     var shadow = getDeOSedValue(line.shadow);
+    // first calculated as offsets from area frame, then relative to canvas
     var x0, y0, x1, y1;
 
     this.registerChangedPositioningOffsets();
@@ -1469,6 +1427,14 @@ ContentDisplay.prototype.refreshLine = function(displayDesc, width, height) {
           y0 === undefined || y1 === undefined) {
         return;
     }
+    // correct for the shift of the canvas relative to the frame.
+    // 'negativeShiftLeft' and 'negativeShiftRight' were calculated
+    // relative to the content position, so we need to correct for it.
+    x0 += this.negativeShiftLeft - leftOffset;
+    x1 += this.negativeShiftLeft - leftOffset;
+    y0 += this.negativeShiftTop - topOffset;
+    y1 += this.negativeShiftTop - topOffset;
+    
     ctx.moveTo(x0, y0);
     ctx.lineTo(x1, y1);
     if (shadow instanceof Object && !(shadow instanceof Array)) {
@@ -1652,7 +1618,6 @@ ContentDisplay.prototype.refreshImage = function(displayDesc) {
 //
 ContentDisplay.prototype.imageUpdateHeightWidth = function(img) {
     var imageDescr = this.descriptionDisplay.image;
-    var transform = this.descriptionDisplay.transform;
     var parentWidth = this.getContentWidth();
     var parentHeight = this.getContentHeight();
 
@@ -1671,7 +1636,7 @@ ContentDisplay.prototype.imageUpdateHeightWidth = function(img) {
 
     // Based on the parent dimensions and img dimensions and conf
     //  calculate the desired width, height, top, left
-    // The image is always centralized
+    // The image is always centered
     // Note that resizing svg is not supported.
     var naturalWidth, naturalHeight;
     if ("src" in imageDescr) {
@@ -1681,7 +1646,6 @@ ContentDisplay.prototype.imageUpdateHeightWidth = function(img) {
     if (!naturalWidth || !naturalHeight) {
         return;
     }
-    img.onload = undefined; // avoid superfluous call
 
     var widthRatio = naturalWidth / parentWidth;
     var heightRatio = naturalHeight / parentHeight;
@@ -1842,6 +1806,8 @@ ContentDisplay.prototype.setDisplayElementPos = function() {
         this.canvas.height = eheight;
         root.style.width = ewidth + "px";
         root.style.height = eheight + "px";
+        // The negative shift is relative to the content (0,0), which is
+        // also the display div's inner border.
         root.style.top = ((this.paddingTop? this.paddingTop: 0) -
                           this.negativeShiftTop) + "px";
         root.style.left = ((this.paddingLeft? this.paddingLeft: 0) -
@@ -1863,9 +1829,6 @@ ContentDisplay.prototype.setDisplayElementPos = function() {
                 textDescr.overflow !== "clip" &&
                 textDescr.whiteSpace === "nowrap"?
                 ewidth + "px": "";
-        }
-        if (this.getRotation() !== 0) {
-            this.applyHTMLTransform(this.descriptionDisplay.transform);
         }
         break;
       case "html":
@@ -2119,9 +2082,9 @@ Display.prototype.configurationUpdate = function(
 Display.prototype.applyTransitionProperties = function(transitions) {
     this.ContentDisplay_applyTransitionProperties(transitions);
     if (this.descriptionDisplay !== undefined) {
-        copyTransitionCssProp(this.frameDiv.style, undefined, transitions);
+        copyTransitionCssProp(this.frameDiv.style, "frame", transitions);
         if(this.embeddingDiv)
-            copyTransitionCssProp(this.embeddingDiv.style, undefined,
+            copyTransitionCssProp(this.embeddingDiv.style, "embedding",
                                   transitions);
     }
 }
@@ -2408,11 +2371,8 @@ Display.prototype.onfocus = function(newValue, element) {
 
 Display.prototype.applyHTMLTransform = function(value) {
     if (this.displayElement && this.displayElement.root) {
-        var parentArea = this.baseArea.parent;
-        var parentWidth = parentArea === undefined?
-            this.baseArea.relative.width: parentArea.relative.width;
         assignCSSStyleProp(this.displayElement.root.style, "transform",
-            getTransformObjectAsString(value, this.displayType, parentWidth));
+            getTransformObjectAsString(value));
     }
 }
 
@@ -2630,39 +2590,77 @@ Display.prototype.destroyDisplayElements = function() {
 // from the display description.
 var frameResetProperties = {
     background: "",
-    borderSpacing: "",
     boxShadow: "",
     hoverText: "",
     opacity: "",
+    viewOpacity: "",
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
-    borderStyle: "",
     borderWidth: "",
     borderColor: "",
+    borderLeftColor: "",
+    borderRightColor: "",
+    borderTopColor: "",
+    borderBottomColor: "",
     paddingLeft: "",
     paddingRight: "",
     paddingTop: "",
     paddingBottom: "",
-    overflow: "",
     transform: "",
-    filter: ""
+    filter: "",
+    viewFilter: ""
 };
+
+// These are properties whose default in CDL is different from their
+// HTML default. Therefore, when they are missing in the display description,
+// their default value has to be set explicitly. This is different from
+// the properties in frameResetProperties, which only need to be set to their
+// default when they were previously set to some other value and then removed.
+//
+// The setting of the default value always takes place only if there is
+// no explicit definition of the property. Moreover, it may be conditioned
+// on the values of other properties. If the attribute and value given under
+// 'exception' exist in the display description, there is no need to set
+// the default value.
+
+var frameDefaultProperties = {
+    borderLeftStyle: {
+        exception: { attribute: "borderLeftWidth", value: "0px" },
+        defaultValue: "solid"
+    },
+    borderRightStyle: {
+        exception: { attribute: "borderRightWidth", value: "0px" },
+        defaultValue: "solid"
+    },
+    borderTopStyle: {
+        exception: { attribute: "borderTopWidth", value: "0px" },
+        defaultValue: "solid"
+    },
+    borderBottomStyle: {
+        exception: { attribute: "borderBottomWidth", value: "0px" },
+        defaultValue: "solid"
+    }
+}
 
 // Properties which have to be reset on the inner element when they are missing
 // from the display description.
 var displayResetProperties = {
-    clip: false,
     color: "",
+    direction: "",
     fontFamily: "",
     fontSize: "",
     fontStyle: "",
     fontVariant: "",
     fontWeight: "",
+    hyphens: "",
+    lang: "",
+    letterSpacing: "",
     lineHeight: "",
     textShadow: "",
     textAlign: "center",
+    textAlignLast: "",
     textDecoration: "",
     textFillColor: "",
     textIndent: "",
@@ -2670,10 +2668,12 @@ var displayResetProperties = {
     textStrokeWidth: "",
     textTransform: "",
     verticalAlign: "middle",
-    overflowX: "",
-    overflowY: "",
-    overflow: "",
-    whiteSpace: ""
+    textOrientation: "",
+    textOverflow: "",
+    whiteSpace: "",
+    wordBreak: "",
+    wordSpacing: "",
+    writingMode: ""
 };
 
 // This function applies the current display properties (as recorded in the
@@ -2723,15 +2723,16 @@ Display.prototype.applyDisplayProperties =
 
 Display.prototype.resetFrame = function(definedProps, applyTransition) {
     if (applyTransition) {
-        if ("transitions" in definedProps) {
-            copyTransitionCssProp(this.frameDiv.style, undefined, definedProps.transitions);
+        if ("transition" in definedProps) {
+            copyTransitionCssProp(this.frameDiv.style, "frame",
+                                  definedProps.transition);
             if(this.embeddingDiv)
-                copyTransitionCssProp(this.embeddingDiv.style, undefined, definedProps.transitions);
+                copyTransitionCssProp(this.embeddingDiv.style, "embedding",
+                                      definedProps.transition);
         } else {
-            resetTransitionCssProp(this.frameDiv.style, undefined, undefined);
+            resetTransitionCssProp(this.frameDiv.style);
             if(this.embeddingDiv)
-                resetTransitionCssProp(this.embeddingDiv.style, undefined,
-                                       undefined);
+                resetTransitionCssProp(this.embeddingDiv.style);
         }
     }
 }
@@ -2777,7 +2778,7 @@ Display.prototype.setZIndex = function(frameZ, displayZ) {
 Display.prototype.isOpaquePosition = function(x, y) {
     var displayConfiguration = this.descriptionDisplay;
 
-    function getRadius(xSide, ySize) {
+    function getRadius(xSide, ySide) {
         var attr = "border" + xSide + ySide + "Radius";
         var cornerRadius = displayConfiguration[attr];
 
@@ -2997,7 +2998,7 @@ SurveyDisplay.prototype.update = function(dispDesc, width, height) {
 SurveyDisplay.prototype.applyHTMLTransform = function(value) {
     if (this.displayElement && this.displayElement.root) {
         assignCSSStyleProp(this.displayElement.root.style, "transform",
-            getTransformObjectAsString(value, this.displayType, 0));
+            getTransformObjectAsString(value));
     }
 }
 

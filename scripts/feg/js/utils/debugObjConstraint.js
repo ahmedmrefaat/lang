@@ -1,3 +1,4 @@
+// Copyright 2018 Yoav Seginer.
 // Copyright 2017 Yoav Seginer, Theo Vosse, Gil Harari, and Uri Kolodny.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -289,8 +290,14 @@ function debugObjConstraintReadAllSegmentConstraints() {
               }
           }
           
-          if(entry.stability)
-              singleStr += " stability=true";
+          if(entry.stability) {
+              if(entry.stability == "min")
+                  singleStr += " stability=min";
+              else if(entry.stability == "max")
+                  singleStr += " stability=max";
+              else
+                  singleStr += " stability=true";
+          }
           
           if(entry.preference)
               singleStr += " preference=" + entry.preference;
@@ -456,6 +463,14 @@ function debugObjConstraintGetFullName(pointId, pointAreaID, curAreaID)
 {
     var pointStr = this.pointLabelById[pointId];
 
+    if(pointStr === undefined) { // is an auxiliary point
+        var origPointId = globalAuxPointIds[pointId];
+        if(origPointId === undefined)
+            return "???(" + pointId + ")";
+        return this.getFullName(origPointId, pointAreaID, curAreaID) +
+            "." + pointId;
+    }
+    
     if (gPointNameMap === undefined && pointAreaID == curAreaID && pointStr.search(pointAreaID) === 0)
         return "___" + pointStr.substr(String(pointAreaID).length);
     if (gPointNameMap === undefined)

@@ -1,3 +1,4 @@
+// Copyright 2018,2019 Yoav Seginer
 // Copyright 2017 Yoav Seginer, Theo Vosse, Gil Harari, and Uri Kolodny.
 // 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -295,7 +296,7 @@ function parseColorStopsArr(inputStopsStr) {
 // as the display DIV in the Display object) and a linear background gradient
 // ('gradientProps') description as follows:
 // {
-//      start: 'left'/'top'/'left top'/'left bottom'/'right top'
+//      direction: 'left'/'top'/'left top'/'left bottom'/'right top'
 //      stops: [[color, number], <additional-stops>]
 // }
 //
@@ -310,6 +311,7 @@ function parseColorStopsArr(inputStopsStr) {
 
 function copyBackgroundLinearGradientCssProp(displayDiv, gradientProps)
 {
+    gradientProps = getDeOSedValue(gradientProps);
     // translate stop properties into a string of stops
     var stops = parseColorStopsArr(gradientProps.stops);
 
@@ -317,7 +319,9 @@ function copyBackgroundLinearGradientCssProp(displayDiv, gradientProps)
         return;
     
     var linearGradientStr =
-        'linear-gradient(' + gradientProps.start + ', ' + stops + ')';
+        'linear-gradient(' + (gradientProps.direction ?
+                              gradientProps.direction + ', ' : "") +
+        stops + ')';
 
     // Firefox, Chrome, Safari
     assignCSSStyleProp(displayDiv.style, "background",
@@ -338,10 +342,9 @@ function copyBackgroundLinearGradientCssProp(displayDiv, gradientProps)
 //                xpos ypos
 //                or
 //                "inherit",
-//      angle: <number>"deg",
 //      shape: "circle"|"ellipse",
 //      size: "closest-side"|"closest-corner"|"farthest-side"|
-//            "farthest-corner"|"contain"|"cover",
+//            "farthest-corner"|"contain"|"cover"|<dimensions>
 //      stops: [[color, length], [color, length], <additional-stops>]
 // }
 //
@@ -358,34 +361,28 @@ function copyBackgroundLinearGradientCssProp(displayDiv, gradientProps)
 
 function copyBackgroundRadialGradientCssProp(displayDiv, gradientProps)
 {
+    gradientProps = getDeOSedValue(gradientProps);
+    
     var stops = parseColorStopsArr(gradientProps.stops);
 
     if(!stops)
         return;
     
     var radialGradientStr = "radial-gradient(";
-    if(gradientProps.position || gradientProps.angle) {
-        radialGradientStr +=
-            (gradientProps.position ? gradientProps.position + " " : "") +
-            (gradientProps.angle ? gradientProps.angle : "") + ", ";
-    }
     if(gradientProps.shape || gradientProps.size) {
         radialGradientStr +=
             (gradientProps.shape ? gradientProps.shape + " " : "") +
-            (gradientProps.size ? gradientProps.size : "") + ", ";
-    }        
+            (gradientProps.size ? gradientProps.size : "") +
+            (gradientProps.centerPoint ? "" : ", ");
+    }
+    
+    if(gradientProps.centerPoint) {
+        radialGradientStr += " at " + gradientProps.centerPoint + ",";
+    }
 
     radialGradientStr += stops + ')';
 
-    // Firefox
-    assignCSSStyleProp(displayDiv.style, "background",
-                       "-moz-" + radialGradientStr);
-    // Chrome and Safari
-    assignCSSStyleProp(displayDiv.style, "background",
-                       "-webkit-" + radialGradientStr);
-    // IE (advanced versions)
-    assignCSSStyleProp(displayDiv.style, "background",
-                       "-ms-" + radialGradientStr);
+    assignCSSStyleProp(displayDiv.style, "background", radialGradientStr);
 }
 
 function copyBackgroundImage(displayDiv, value) {
@@ -426,18 +423,10 @@ function copyBackgroundImage(displayDiv, value) {
 // 
 
 var cssPropTranslationTable = {
-    borderTopLeftRadius: [
-        "-webkit-border-top-left-radius", "-moz-border-radius-topleft",
-        "border-top-left-radius"],
-    borderTopRightRadius: [
-        "-webkit-border-top-right-radius", "-moz-border-radius-topright",
-        "border-top-right-radius"],
-    borderBottomLeftRadius: [
-        "-webkit-border-bottom-left-radius", "-moz-border-radius-bottomleft",
-        "border-bottom-left-radius"],
-    borderBottomRightRadius: [
-        "-webkit-border-bottom-right-radius", "-moz-border-radius-bottomright",
-        "border-bottom-right-radius"],
+    borderTopLeftRadius: ["border-top-left-radius"],
+    borderTopRightRadius: ["border-top-right-radius"],
+    borderBottomLeftRadius: ["border-bottom-left-radius"],
+    borderBottomRightRadius: ["border-bottom-right-radius"],
     borderStyle: "border-style",
     borderLeftStyle: "border-left-style",
     borderRightStyle: "border-right-style",
@@ -460,37 +449,58 @@ var cssPropTranslationTable = {
     paddingRight: "padding-right",
     textShadow: "text-shadow",
     textOverflow: "text-overflow",
+    wordBreak: "word-break",
     fontFamily: "font-family",
     fontSize: "font-size",
     fontStyle: "font-style",
     fontWeight: "font-weight",
     fontVariant: "font-variant",
+    lang: "lang",
+    direction: "direction",
+    writingMode: "writing-mode",
+    textOrientation: "text-orientation",
+    hyphens: ["hyphens","-ms-hyphens","-webkit-hyphens"],
+    letterSpacing: "letter-spacing",
+    wordSpacing: "word-spacing",
     lineHeight: "line-height",
     textDecoration: "text-decoration",
     boxShadow: ["box-shadow", "MozBoxShadow", "-webkit-box-shadow"],
-    overflowX: "overflow-x",
-    overflowY: "overflow-y",
     textFillColor: ["text-fill-color", "-webkit-text-fill-color",
                     "MozTextFillColor"],
     textStrokeWidth: ["text-stroke-width", "-webkit-text-stroke-width",
                     "MozTextStrokeWidth"],
     textStrokeColor: ["text-stroke-color", "-webkit-text-stroke-color",
                     "MozTextStrokeColor"],
-    borderSpacing: "border-spacing",
     textAlign: "text-align",
+    textAlignLast: "text-align-last",
     textIndent: "text-indent",
     textTransform: "text-transform",
     verticalAlign: "vertical-align",
     backgroundColor: "background-color",
     transform: ["transform", "-webkit-transform"],
     hoverText: "title",
-    overflow: "text-overflow",
-    whiteSpace: "white-space"
+    whiteSpace: "white-space",
+    viewFilter: "filter",
+    viewOpacity: "opacity"
 };
 
 function num2Pixel(value) {
+    var value2 = parseFloat(getDeOSedValue(value));
+    return isNaN(value2)? value: value2 + "px";
+}
+
+// The input value can be a single or pair of length or percentage values.
+// If one or both of the values are numbers, a "px" prefix is added to them.
+function pair2Pixels(value) {
     value = getDeOSedValue(value);
-    return isNaN(value)? value: value + "px";
+    if(!isNaN(value)) // a pure number
+        return value + "px";
+    // check whether can be split into two
+    var values = value.split(/\s+/);
+    if(values.length < 2 || values[1] == "")
+        return value; // single value, nothing more to do
+
+    return num2Pixel(values[0]) + " " + num2Pixel(values[1]); 
 }
 
 function copyDisplayCssProp(display, attrib, value) {
@@ -508,7 +518,7 @@ function copyDisplayCssProp(display, attrib, value) {
       case "line":
       case "image":
       case "pointerOpaque":
-      case "transitions":
+      case "transition":
       case "foreign":
         return;
       case "background":
@@ -557,7 +567,7 @@ function copyDisplayCssProp(display, attrib, value) {
       case "borderBottomLeftRadius":
       case "borderBottomRightRadius":
         assignCSSStylePropToElements(display, ["displayDiv", "frameDiv"],
-                                     attrib, num2Pixel(value));
+                                     attrib, pair2Pixels(value));
         return;
       case "boxShadow":
         if (value !== "" && !display.independentContentPosition) {
@@ -612,8 +622,6 @@ function copyDisplayCssProp(display, attrib, value) {
       case "borderBottomStyle":
       case "borderBottomWidth":
       case "borderBottomColor":
-      case "overflowX":
-      case "overflowY":
       case "paddingTop":
       case "paddingBottom":
       case "paddingLeft":
@@ -621,8 +629,19 @@ function copyDisplayCssProp(display, attrib, value) {
       case "opacity":
         assignCSSStyleProp(display.displayDiv.style, attrib, value);
         return;
+      case "viewOpacity":
+        if(display.frameDiv)
+            assignCSSStyleProp(display.frameDiv.style, "opacity", value);
+        return;
       case "filter":
-        assignCSSStyleProp(display.displayDiv.style, attrib, getCSSFilterString(value));
+        assignCSSStyleProp(display.displayDiv.style, attrib,
+                           getCSSFilterString(value));
+        return;
+      case "viewFilter":
+        var filterCSSString = getCSSFilterString(value);
+        if(display.frameDiv)
+            assignCSSStyleProp(display.frameDiv.style, "filter",
+                               filterCSSString);
         return;
       case "hoverText":
         display.displayDiv.title = value;
@@ -646,23 +665,76 @@ function copyDisplayCssProp(display, attrib, value) {
 
 function getCSSFilterString(v) {
     var filterString = "";
-    var filterTranslate = {dropShadow: "drop-shadow", hueRotate: "hue-rotate"};
-    var numberSuffix = {blur: "px", hueRotate: "deg"};
 
     if (!v || !(v instanceof Object)) {
         return "";
     }
+    
+    if(v instanceof Array) {
+        for(var i = 0, l = v.length ; i < l ; ++i)
+            filterString += " " + getCSSFilterString(v[i]);
+        return filterString;
+    }
+    
+    var filterTranslate = {dropShadow: "drop-shadow", hueRotate: "hue-rotate"};
+    var numberSuffix = {blur: "px", hueRotate: "deg"};
+
     for (var attr in v) {
         var val = getDeOSedValue(v[attr]);
-        if (typeof(val) === "number" && attr in numberSuffix) {
-            val += numberSuffix[attr];
-        }
-        if (attr in filterTranslate) {
-            attr = filterTranslate[attr];
+        if(attr == "url")
+            val = '"' + val + '"';
+        else {
+            if (typeof(val) === "number" && attr in numberSuffix) {
+                val += numberSuffix[attr];
+            }
+            if (attr in filterTranslate) {
+                attr = filterTranslate[attr];
+            }
         }
         filterString += " " + attr + "(" + val + ")";
     }
     return filterString;
+}
+
+//
+// CSS Transitions
+//
+
+// Convert the CDL description of the properties of a CSS transition
+// to the corresponding CSS string. 'transitionSpec' may be a number,
+// string or object (possibly wrapped in an array).
+
+function getCSSTransitionSpecStr(transitionSpec) {
+
+    var transitionStr;
+    
+    if(transitionSpec instanceof Array)
+        transitionSpec = transitionSpec[0];
+    
+    switch (typeof(transitionSpec)) {
+    case "number":
+        transitionStr = transitionSpec + "s";
+        break;
+    case "string":
+        transitionStr = transitionSpec;
+        break;
+    case "object":
+        transitionStr = "";
+        if ("duration" in transitionSpec) {
+            transitionStr += typeof(transitionSpec.duration) === "number"?
+                transitionSpec.duration + "s" : transitionSpec.duration;
+            if ("delay" in transitionSpec) {
+                transitionStr += " " +
+                    (typeof(transitionSpec.delay) === "number"?
+                     transitionSpec.delay + "s" : transitionSpec.delay);
+            }
+        }
+        if ("timingFunction" in transitionSpec)
+            transitionStr += " " + transitionSpec.timingFunction;
+        break;
+    }
+
+    return transitionStr;
 }
 
 var elementTransitionProperties = {
@@ -670,67 +742,133 @@ var elementTransitionProperties = {
     color: true
 }
 
-function copyTransitionCssProp(styleObj, displayElement, transitions) {
+// The transition properties defined for each type of DOM element
 
-    function getTransitionStr(inElement) {
-        var transitionStr = "";
-
-        for (var attr in transitions) {
-            if (inElement !== elementTransitionProperties[attr])
-                continue;
-            var cssProp = attr in cssPropTranslationTable?
-                cssPropTranslationTable[attr]: attr;
-            var transition = transitions[attr];
-            for (var i = 0;
-                (cssProp instanceof Array && i < cssProp.length) || i < 1;
-                i++) {
-                var cssPropI = cssProp instanceof Array? cssProp[i]: cssProp;
-                if (transitionStr.length > 0) {
-                    transitionStr += ",";
-                }
-                transitionStr += cssPropI + " ";
-                if(transition instanceof Array)
-                    transition = transition[0];
-                switch (typeof(transition)) {
-                case "number":
-                    transitionStr += transition + "s";
-                    break;
-                case "string":
-                    transitionStr += transition;
-                    break;
-                case "object":
-                    if ("duration" in transition) {
-                        transitionStr +=
-                        typeof(transition.duration) === "number"?
-                            transition.duration + "s":
-                            transition.duration;
-                        if ("timingFunction" in transition) {
-                            transitionStr += " " +
-                                transition.timingFunction;
-                            if ("delay" in transition) {
-                                transitionStr += " " + transition.delay;
-                            }
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-        return transitionStr;
-    }
-
-    styleObj.setProperty("transition", getTransitionStr(undefined));
-    if (displayElement !== undefined && displayElement.root !== undefined) {
-        displayElement.root.style.setProperty("transition",
-                                              getTransitionStr(true));
+var transitionPropertiesByElement = {
+    frame: {
+        top: true,
+        left: true,
+        width: true,
+        height: true,
+        borderRadius: true,
+        borderTopLeftRadius: true,
+        borderTopRightRadius: true,
+        borderBottomLeftRadius: true,
+        borderBottomRightRadius: true,
+        viewFilter: true,
+        viewOpacity: true,
+        shadowBox: true
+    },
+    embedding: {
+        width: true,
+        height: true
+    },
+    display: {
+        width: true,
+        height: true,
+        background: true,
+        borderColor: true,
+        borderLeftColor: true,
+        borderRightColor: true,
+        borderTopColor: true,
+        borderBottomColor: true,
+        borderWidth: true,
+        borderLeftWidth: true,
+        borderRightWidth: true,
+        borderTopWidth: true,
+        borderBottomWidth: true,
+        borderRadius: true,
+        borderTopLeftRadius: true,
+        borderTopRightRadius: true,
+        borderBottomLeftRadius: true,
+        borderBottomRightRadius: true,
+        opacity: true,
+        filter: true
+    },
+    root: {
+        width: true,
+        height: true,
+        transform: true,
+        color: true
     }
 }
 
-function resetTransitionCssProp(styleObj, displayElement) {
-    styleObj.removeProperty("transition");
-    if (displayElement !== undefined && displayElement.root !== undefined) {
-        displayElement.root.style.removeProperty("transition");
+// Given the object 'transitions' describing the 'transition' display
+// property of an area and an 'elementName' indicating which of the
+// DOM elements these transitions should be set on ("frame" for the
+// frame DIV, "display" for the display DIV and "root" for the root of
+// the display element), this function returns the string which should be
+// set under the 'transition' CSS property of that element.
+
+function getTransitionStr(transitions, elementName) {
+    
+    var transitionStr = "";
+
+    // returns a new object with the transitions which need to be set on the
+    // element of the given type
+    function getAttrList(transitions, elementName) {
+        var newTransitions = {};
+        // transition properties for the given DOM element
+        var elementTransitions = transitionPropertiesByElement[elementName];
+
+        if(elementTransitions === undefined)
+            return newTransitions;
+        
+        for (var attr in transitions) {
+            if(!(attr in elementTransitions))
+                continue;
+            if(attr in expandingAttributes) {
+                // attribute should be expanded to multiple attribute, but
+                // without overriding the more specific attribute (if defined
+                // explicitly)
+                var expanding = expandingAttributes[attr];
+                for(var i = 0; i < expanding.length; i++) {
+                    if(!(expanding[i] in transitions)) // not explicitly defined
+                        newTransitions[expanding[i]] = transitions[attr];
+                }
+            } else
+                newTransitions[attr] = transitions[attr];
+        }
+
+        return newTransitions;
     }
+    
+    transitions = getAttrList(transitions, elementName);
+
+    for(var attr in transitions) {
+        var cssProp = attr in cssPropTranslationTable?
+            cssPropTranslationTable[attr]: attr;
+        var transition = transitions[attr];
+        for (var i = 0;
+             (cssProp instanceof Array && i < cssProp.length) || i < 1;
+             i++) {
+            var cssPropI = cssProp instanceof Array? cssProp[i]: cssProp;
+            if (transitionStr.length > 0)
+                transitionStr += ",";
+            transitionStr +=
+                cssPropI + " " + getCSSTransitionSpecStr(transition);
+        }
+    }
+    return transitionStr;
+}
+
+
+// 'styleObj' is the style object of a DOM element to which transitions
+// should be applied. 'elementName' indicates which element it is:
+// "frame" for the frame DIV, "display" for the display DIV and
+// "root" for the root element of the display element. 'transitions' is
+// the object describing the transition property for this area.
+// This function decides which of the properties specified in
+// 'transitions' need to have its transition set of the given style object.
+// The function then sets the transition as needed.
+
+function copyTransitionCssProp(styleObj, elementName, transitions) {
+    styleObj.setProperty("transition",
+                         getTransitionStr(transitions, elementName));
+}
+
+function resetTransitionCssProp(styleObj) {
+    styleObj.removeProperty("transition");
 }
 
 /*****************************************************************************/
@@ -797,9 +935,6 @@ function copyDisplayTypeCssProp(displayType, elements, attrib, value)
     switch (attrib) {
       case "preformatted":
         break;
-      case "clip":
-        // TODO
-        break;
       case "textFillColor":
       case "textStrokeColor":
       case "fontFamily":
@@ -808,20 +943,27 @@ function copyDisplayTypeCssProp(displayType, elements, attrib, value)
       case "fontVariant":
       case "color":
       case "textDecoration":
-      case "borderSpacing":
+      case "writingMode":
         assignCSSStyleProp(elements.format.style, attrib, value);
         break;
       case "textStrokeWidth":
       case "fontSize":
+      case "letterSpacing":
+      case "textIndent":
+      case "wordSpacing":
         assignCSSStyleProp(elements.format.style, attrib, num2Pixel(value));
         break;
-      case "overflow":
+      case "textOverflow":
       case "whiteSpace":
       case "lineHeight":
       case "textAlign":
-      case "textIndent":
+      case "textAlignLast":
       case "textTransform":
       case "verticalAlign":
+      case "hyphens":
+      case "wordBreak":
+      case "direction":
+      case "textOrientation":
         // These properties are not inherited, since they mean something else
         // in a cell than in a div.
         if (elements.content !== undefined) {
@@ -846,6 +988,12 @@ function copyDisplayTypeCssProp(displayType, elements, attrib, value)
                                finalVal === ""? "none": finalVal);
         }
         break;
+      case "lang":
+        // This is a global attribute, not a style attribute, so it is set
+        // directly on the element
+        if (elements.content !== undefined)
+            elements.content.setAttribute(attrib, value);
+        break;
       default:
         cdlAuthorError('Unsupported attribute: ' + attrib + '=' +
                            JSON.stringify(value));
@@ -855,38 +1003,61 @@ function copyDisplayTypeCssProp(displayType, elements, attrib, value)
 
 /******************************************************************************/
 
-function getTransformObjectAsString(val, displayType, parentWidth) {
+function getTransformObjectAsString(val) {
     var str = "";
 
+    if(val instanceof Array) {
+        for(var i = 0, l = val.length ; i < l ; ++i)
+            str += getTransformObjectAsString(val[i]);
+        return str;
+    }
+    
     if (val instanceof Object) {
-        if (typeof(val.rotate) === "number") {
-            if (displayType === "text") {
-                // A text display is not centered; the element resizes itself,
-                // so a simple rotation will only rotate around the display's
-                // center when the text fits.
-                str += "translateX(-50%) translateX(" + parentWidth / 2 + "px) rotate(" + val.rotate + "deg) ";
-            } else {
-                str += "rotate(" + val.rotate + "deg) ";
+        var rotate = getDeOSedValue(val.rotate);
+        if (typeof(rotate) === "number") {
+            str += "rotate(" + rotate + "deg) ";
+        }
+        var scale = getDeOSedValue(val.scale);
+        if (typeof(scale) === "number") {
+            str += "scale(" + scale + ") ";
+        } else if (scale instanceof Object) {
+            var x = getDeOSedValue(scale.x);
+            if (typeof(x) === "number") {
+                str += "scaleX(" + x + ") ";
+            }
+            var y = getDeOSedValue(scale.y);
+            if (typeof(y) === "number") {
+                str += "scaleY(" + y + ") ";
             }
         }
-        if (typeof(val.scale) === "number") {
-            str += "scale(" + val.scale + ") ";
-        } else if (val.scale instanceof Object) {
-            if (typeof(val.scale.x) === "number") {
-                str += "scaleX(" + val.scale.x + ") ";
-            }
-            if (typeof(val.scale.y) === "number") {
-                str += "scaleY(" + val.scale.y + ") ";
-            }
+        var skew = getDeOSedValue(val.skew);
+        if (skew instanceof Object) {
+            var x = getDeOSedValue(skew.x);
+            if(x !== undefined)
+                str += "skewX(" + x + ((typeof(x) == "number") ? "deg) ":") ");
+            var y = getDeOSedValue(skew.y);
+            if(y !== undefined)
+                str += "skewY(" + y + ((typeof(y) == "number") ? "deg) ":") ");
         }
         if (val.flip !== undefined) {
-            if (val.flip === "horizontally" ||
-                (val.flip instanceof Array && val.flip.indexOf("horizontally") !== -1)) {
+            var flip = getDeOSedValue(val.flip);
+            if (flip === "horizontally" ||
+                (flip instanceof Array && flip.indexOf("horizontally") !== -1)) {
                 str += "matrix(-1,0,0,1,0,0) ";
-            } else if (val.flip === "vertically" ||
-                  (val.flip instanceof Array && val.flip.indexOf("vertically") !== -1)) {
+            } else if (flip === "vertically" ||
+                  (flip instanceof Array && flip.indexOf("vertically") !== -1)) {
                 str += "matrix(1,0,0,-1,0,0) ";
             }
+        }
+        var matrix = getDeOSedValue(val.matrix); 
+        if(matrix instanceof Object) {
+            var a = getDeOSedValue(matrix.a);
+            var b = getDeOSedValue(matrix.b);
+            var c = getDeOSedValue(matrix.c);
+            var d = getDeOSedValue(matrix.d);
+            var tx = getDeOSedValue(matrix.tx);
+            var ty = getDeOSedValue(matrix.ty);
+            str += "matrix("+a+","+b+","+c+","+d+","+tx+","+ty+") "
         }
     }
     return str;
